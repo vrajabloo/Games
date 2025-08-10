@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>بمباران/جنگ کاغذی - Paper Bombing</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!--
+    خلاصه معماری (TL;DR)
+    - Game: مدیریت وضعیت کلی بازی، فازها (منو/چیدمان/بازی/پایان)، نوبت‌دهی، ذخیره/بارگذاری.
+    - Board: مدل زمین هر بازیکن (Grid)، واحدها، برخورد و آسیب، ثبت Hit/Miss.
+    - Unit: نوع، ابعاد سلولی (w×h)، HP، موقعیت و وضعیت نابودی.
+    - Renderer: رسم دو Canvas، شبکه، واحدهای خودی، نقاط ضربه، انیمیشن Hit/Miss، پیش‌نمایش تا زدن.
+    - UI: منو، راهنما، تنظیمات، پنل چیدمان (درگ/دراپ)، پیام‌های نوبت و آمار.
+    - Utils: نگاشت مختصات Canvas ↔ نرمالیزه (0..1) ↔ Grid، ابزار ذخیره‌سازی و صدا.
+    - ذخیره‌سازی: localStorage برای ادامه بازی، تنظیمات و تاریخچه ضربه‌ها.
+  -->
+
+  <div id="app">
+    <!-- نوار بالا -->
+    <header class="topbar">
+      <div class="brand">بمباران کاغذی</div>
+      <div class="status">
+        <span id="activePlayerLabel">نوبت بازیکن ۱</span>
+        <span class="sep">•</span>
+        <span>واحدهای من: <b id="p1UnitsLeft">0</b></span>
+        <span class="sep">|</span>
+        <span>واحدهای حریف: <b id="p2UnitsLeft">0</b></span>
+        <span class="sep">•</span>
+        <span>شمار ضربه‌ها: <b id="turnCount">0</b></span>
+      </div>
+      <div class="actions">
+        <button id="btnHelp" class="ghost">راهنما</button>
+        <button id="btnSettings" class="ghost">تنظیمات</button>
+        <button id="btnNewGame" class="danger">بازی جدید</button>
+      </div>
+    </header>
+
+    <!-- ظرف بردها -->
+    <main class="boards">
+      <section class="board-wrap">
+        <div class="board-header">
+          <span>زمین من</span>
+          <div>
+            <button id="btnRotateSelected" class="ghost small" title="چرخش واحد انتخاب‌شده">چرخش ⤾</button>
+            <button id="btnClearPlacement" class="ghost small" title="حذف چیدمان">حذف چیدمان</button>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="canvasMy" width="600" height="600" aria-label="زمین من"></canvas>
+        </div>
+      </section>
+
+      <section class="board-wrap">
+        <div class="board-header">
+          <span>زمین حریف</span>
+          <div>
+            <button id="btnMobileSwitch" class="ghost small mobile-only">تعویض نمایش</button>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="canvasEnemy" width="600" height="600" aria-label="زمین حریف"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <!-- پنل چیدمان واحدها (فقط در فاز چیدمان) -->
+    <section id="placementPanel" class="placement hidden">
+      <div class="panel-title">چیدمان واحدها (بازیکن <span id="placementPlayer">۱</span>)</div>
+      <div class="unit-palette" id="unitPalette">
+        <!-- اقلام واحدها به‌صورت داینامیک از تنظیمات ساخته می‌شود -->
+      </div>
+      <div class="placement-actions">
+        <button id="btnRandomPlace" class="ghost">چیدمان تصادفی</button>
+        <button id="btnPlacementDone" class="primary">اتمام چیدمان</button>
+      </div>
+    </section>
+
+    <!-- صفحه شروع / منو -->
+    <div id="startOverlay" class="overlay visible">
+      <div class="modal">
+        <h2>بمباران/جنگ کاغذی</h2>
+        <p>نسخه دیجیتال بازی «نقطه پررنگ و تا زدن»؛ دونفره و نوبتی روی یک دستگاه.</p>
+        <div class="modal-actions vertical">
+          <button id="btnStart" class="primary">شروع بازی</button>
+          <button id="btnContinue" class="ghost" disabled>ادامه بازی</button>
+          <button id="btnOpenHelp" class="ghost">راهنما</button>
+          <button id="btnOpenSettings" class="ghost">تنظیمات</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- مودال راهنما -->
+    <div id="helpOverlay" class="overlay">
+      <div class="modal large">
+        <h3>راهنما</h3>
+        <div class="help-content">
+          <p>هر بازیکن روی زمین خودش واحدها را می‌چیند. در هر نوبت، روی زمین خودت یک نقطه بزن؛ همان مختصات روی زمین حریف اعمال می‌شود.</p>
+          <ul>
+            <li>حالت Grid: زمین ۱۲×۱۲ (قابل تغییر در تنظیمات)</li>
+            <li>واحدها اندازه سلولی و HP دارند؛ با Hit صفر شوند، نابود می‌شوند.</li>
+            <li>از زمین حریف فقط ضربه‌های قبلی‌ات را می‌بینی؛ واحدهایش مخفی‌اند.</li>
+            <li>پیش‌نمایش تا زدن: با حرکت نشانگر روی زمین خودت، موقعیت متناظر روی زمین حریف نمایش شفاف دارد (در تنظیمات فعال/غیرفعال).</li>
+          </ul>
+          <div class="legend">
+            <div><span class="chip hit"></span> برخورد</div>
+            <div><span class="chip miss"></span> خطا</div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="primary" data-close="helpOverlay">بستن</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- مودال تنظیمات -->
+    <div id="settingsOverlay" class="overlay">
+      <div class="modal large">
+        <h3>تنظیمات</h3>
+        <form id="settingsForm" class="settings-form">
+          <div class="row">
+            <label>اندازه Grid</label>
+            <input type="range" id="gridSize" min="8" max="16" step="1" value="12" />
+            <span id="gridSizeVal">12</span>
+          </div>
+          <div class="row">
+            <label>اندازه نقطه ضربه (px)</label>
+            <input type="range" id="dotSize" min="6" max="28" step="1" value="14" />
+            <span id="dotSizeVal">14</span>
+          </div>
+          <div class="row">
+            <label>پیش‌نمایش تا زدن</label>
+            <input type="checkbox" id="previewEnabled" checked />
+          </div>
+          <div class="row">
+            <label>صداهای Hit/Miss</label>
+            <input type="checkbox" id="soundEnabled" checked />
+          </div>
+          <fieldset class="units">
+            <legend>واحدها (ابعاد و HP)</legend>
+            <div class="grid">
+              <div>
+                <label>سرباز (1×1) — تعداد</label>
+                <input type="number" id="count_soldier" min="0" max="8" value="4" />
+                <label>HP</label>
+                <input type="number" id="hp_soldier" min="1" max="5" value="1" />
+              </div>
+              <div>
+                <label>تانک (2×1) — تعداد</label>
+                <input type="number" id="count_tank" min="0" max="6" value="3" />
+                <label>HP</label>
+                <input type="number" id="hp_tank" min="1" max="5" value="2" />
+              </div>
+              <div>
+                <label>توپ‌خانه (3×1) — تعداد</label>
+                <input type="number" id="count_artillery" min="0" max="4" value="2" />
+                <label>HP</label>
+                <input type="number" id="hp_artillery" min="1" max="5" value="2" />
+              </div>
+              <div>
+                <label>سنگر (2×2) — تعداد</label>
+                <input type="number" id="count_bunker" min="0" max="3" value="1" />
+                <label>HP</label>
+                <input type="number" id="hp_bunker" min="1" max="5" value="3" />
+              </div>
+              <div>
+                <label>هواپیما (1×3) — تعداد</label>
+                <input type="number" id="count_plane" min="0" max="3" value="1" />
+                <label>HP</label>
+                <input type="number" id="hp_plane" min="1" max="5" value="2" />
+              </div>
+            </div>
+          </fieldset>
+        </form>
+        <div class="modal-actions">
+          <button id="btnSaveSettings" class="primary">ذخیره</button>
+          <button class="ghost" data-close="settingsOverlay">بستن</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- مودال پایان بازی -->
+    <div id="gameOverOverlay" class="overlay">
+      <div class="modal">
+        <h2 id="gameOverTitle">پایان بازی</h2>
+        <p id="gameOverDesc"></p>
+        <div class="modal-actions">
+          <button id="btnRematch" class="primary">بازی مجدد</button>
+          <button class="ghost" data-close="gameOverOverlay">بستن</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
