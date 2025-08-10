@@ -1,0 +1,131 @@
+/*
+  استایل کلی و ریسپانسیو برای «بمباران کاغذی»
+*/
+:root {
+  --bg: #0d0f14;
+  --panel: #161a22;
+  --muted: #8f9bb3;
+  --text: #e6e9ef;
+  --accent: #2dd4bf;
+  --accent-2: #60a5fa;
+  --danger: #ef4444;
+  --hit: #f59e0b;
+  --miss: #94a3b8;
+  --grid: #2a3140;
+  --grid-strong: #3a4358;
+  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: Vazirmatn, IRANSans, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  background: radial-gradient(1200px 800px at 80% -10%, rgba(45,212,191,.08), transparent),
+              radial-gradient(800px 600px at 20% 110%, rgba(96,165,250,.08), transparent),
+              var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 60%);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+}
+.brand { font-weight: 700; letter-spacing: .5px; }
+.status { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.status .sep { opacity: .6; }
+.actions { display: flex; gap: 8px; }
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+button.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); color: #081018; font-weight: 700; }
+button.ghost { background: rgba(255,255,255,.06); color: var(--text); }
+button.danger { background: linear-gradient(180deg, #ef4444, #b91c1c); color: #fff; font-weight: 700; }
+button.small { padding: 6px 10px; font-size: 12px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+.boards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+.board-wrap { background: rgba(255,255,255,.04); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+.board-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 10px; color: var(--muted); }
+.canvas-wrap { position: relative; aspect-ratio: 1/1; }
+canvas { width: 100%; height: 100%; display: block; border-radius: 10px; background: #0b0e13; }
+
+.placement {
+  margin: 8px 16px 0;
+  background: rgba(255,255,255,.04);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px;
+}
+.placement .panel-title { padding: 8px 6px; color: var(--muted); }
+.unit-palette { display: flex; gap: 8px; flex-wrap: wrap; padding: 6px; }
+.unit-palette .unit-item { background: rgba(255,255,255,.05); border: 1px dashed var(--grid-strong); padding: 8px 10px; border-radius: 8px; cursor: grab; user-select: none; }
+.unit-palette .unit-item:active { cursor: grabbing; }
+.placement-actions { display: flex; gap: 8px; padding: 8px 6px; }
+
+.overlay {
+  position: fixed; inset: 0; display: none; place-items: center; background: rgba(10,12,18,.6);
+}
+.overlay.visible { display: grid; }
+.modal { background: linear-gradient(180deg, #121722, #0b0f19); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 18px; width: min(520px, 92vw); box-shadow: var(--shadow); }
+.modal.large { width: min(820px, 96vw); }
+.modal h2, .modal h3 { margin-top: 0; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+.modal-actions.vertical { flex-direction: column; }
+
+.help-content { color: var(--muted); line-height: 1.8; }
+.legend { display: flex; gap: 16px; margin-top: 8px; }
+.chip { width: 12px; height: 12px; display: inline-block; border-radius: 999px; margin-inline-end: 6px; }
+.chip.hit { background: var(--hit); }
+.chip.miss { background: var(--miss); }
+
+.settings-form .row { display: grid; grid-template-columns: 140px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; }
+.settings-form fieldset { border: 1px solid rgba(255,255,255,.08); border-radius: 10px; margin-top: 8px; }
+.settings-form legend { color: var(--muted); padding: 0 6px; }
+.settings-form .units .grid { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 10px; padding: 10px; }
+
+.hidden { display: none !important; }
+.mobile-only { display: none; }
+
+@media (max-width: 1100px) {
+  .boards { grid-template-columns: 1fr; }
+  .mobile-only { display: inline-flex; }
+}
+
+/* انیمیشن‌های ساده ضربه */
+@keyframes explode {
+  0% { transform: scale(.2); opacity: 0; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+@keyframes ripple {
+  0% { transform: scale(.2); opacity: .7; border-color: rgba(255,255,255,.6); }
+  100% { transform: scale(1.8); opacity: 0; border-color: transparent; }
+}
+.effect-explosion { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; background: radial-gradient(circle, rgba(245,158,11,1) 0%, rgba(239,68,68,1) 70%, rgba(239,68,68,0) 71%); border-radius: 50%; animation: explode .6s ease-out; pointer-events: none; }
+.effect-ripple { position: absolute; width: 2px; height: 2px; border: 2px solid rgba(255,255,255,.5); border-radius: 999px; margin: -1px 0 0 -1px; animation: ripple .8s ease-out; pointer-events: none; }
+
+/* نشانگر پیش‌نمایش تا زدن */
+.preview-marker { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: rgba(96,165,250,.35); outline: 2px dashed rgba(96,165,250,.7); outline-offset: 2px; pointer-events: none; transition: transform .08s linear; }
